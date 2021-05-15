@@ -161,8 +161,7 @@ void ns_list_dir_entry(ns_dir_entry_t* dir_entry)
 {
 	char fname[SNAME_LEN + 1];
 
-	strncpy(fname, dir_entry->sname, sizeof(fname));
-	fname[SNAME_LEN] = '\0';
+	snprintf(fname, sizeof(fname), "%s", dir_entry->sname);
 	if (strncmp(fname, "        ", SNAME_LEN)) {
 		int dd_flag;
 		uint8_t file_type;
@@ -202,7 +201,7 @@ int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path)
 	char fname[SNAME_LEN + 1];
 	int dd_flag;
 
-	strncpy(fname, dir_entry->sname, sizeof(fname));
+	snprintf(fname, sizeof(fname), "%s", dir_entry->sname);
 	fname[SNAME_LEN] = '\0';
 
 	if (!strncmp(fname, "        ", SNAME_LEN)) {
@@ -210,7 +209,7 @@ int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path)
 	}
 
 	/* Truncate the filename if a space is encountered. */
-	for (int j = 0; j < strlen(fname); j++) {
+	for (int j = 0; j < strnlen(fname, sizeof(fname)); j++) {
 		if (fname[j] == ' ') fname[j] = '\0';
 	}
 
