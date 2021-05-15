@@ -1,5 +1,7 @@
 # nsdos - North Star DOS Disk Utility
 
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/3953578fd1654c26922d7115565afc6c)](https://www.codacy.com/gh/hharte/nsdos/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=hharte/nsdos&amp;utm_campaign=Badge_Grade)
+
 North Star Computers had their own DOS for use with their Horizon and Advantage computer systems, as well as for use with their disk controller.  These disks have a very simple file system, where every file has to be contiguous.
 
 `nsdos` can list and Extract Files from North Star disk images in Dave Dunfield’s [.nsi format](http://dunfield.classiccmp.org/img/). The .nsi format is commonly used in the [SIMH/AltairZ80](https://schorn.ch/altair.html) simulator, as well as with [FluxEngine for North Star](https://github.com/hharte/fluxengine/tree/northstar).
