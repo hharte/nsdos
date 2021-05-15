@@ -129,13 +129,13 @@ exit_main:
 
 int ns_read_dir_entries(FILE* stream, ns_dir_entry_t* dir_entries)
 {
-	size_t readlen;
 	int dir_entry_max = DIR_ENTRIES_SD;
 	int dd_flag;
 	int dir_entry_index = 0;
 	ns_dir_entry_t* dir_entry;
 
 	for (int i = 0; i < dir_entry_max; i++) {
+		size_t readlen;
 		dir_entry = &dir_entries[dir_entry_index];
 		readlen = fread(dir_entry, sizeof(ns_dir_entry_t), 1, stream);
 
@@ -160,12 +160,12 @@ int ns_read_dir_entries(FILE* stream, ns_dir_entry_t* dir_entries)
 void ns_list_dir_entry(ns_dir_entry_t* dir_entry)
 {
 	char fname[SNAME_LEN + 1];
-	uint8_t file_type;
-	int dd_flag;
 
 	strncpy(fname, dir_entry->sname, sizeof(fname));
 	fname[SNAME_LEN] = '\0';
 	if (strncmp(fname, "        ", SNAME_LEN)) {
+		int dd_flag;
+		uint8_t file_type;
 
 		/* Bit 7 of the file type indicates double-density */
 		dd_flag = (dir_entry->file_type & DOUBLE_DENSITY_FLAG);
@@ -198,13 +198,8 @@ void ns_list_dir_entry(ns_dir_entry_t* dir_entry)
 
 int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path)
 {
-	FILE* ostream;
-	int file_offset;
-	uint8_t* file_buf;
 	uint8_t file_type;
-	int file_len;
 	char fname[SNAME_LEN + 1];
-	char output_filename[32];
 	int dd_flag;
 
 	strncpy(fname, dir_entry->sname, sizeof(fname));
@@ -224,6 +219,12 @@ int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path)
 	file_type = dir_entry->file_type &= ~(DOUBLE_DENSITY_FLAG);
 
 	if ((dir_entry->block_count > 0) && (dir_entry->disk_address > 0)) {
+		FILE* ostream;
+		int file_offset;
+		uint8_t* file_buf;
+		int file_len;
+		char output_filename[32];
+		
 		file_len = dir_entry->block_count * NS_BLOCK_SIZE;
 
 		switch (file_type) {
