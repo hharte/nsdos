@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Utility to list directory contents of North Star DOS floppy disks,
  * and optionally extract the files.
  *
@@ -251,7 +251,7 @@ int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path)
 		if (!(ostream = fopen(output_filename, "wb"))) {
 			printf("Error Openening %s\n", output_filename);
 			return (-ENOENT);
-		} else if (file_buf = (uint8_t*)calloc(1, file_len)) {
+		} else if ((file_buf = (uint8_t*)calloc(1, file_len))) {
 			file_offset = dir_entry->disk_address * NS_BLOCK_SIZE * (dd_flag ? 2 : 1);
 			printf("%8s -> %s (%d bytes)\n", fname, output_filename, file_len);
 
