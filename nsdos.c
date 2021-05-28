@@ -28,6 +28,14 @@
 #define FILE_TYPE_OBJECT		(1)
 #define FILE_TYPE_BASIC_SRC		(2)
 #define FILE_TYPE_BASIC_DATA	(3)
+#define FILE_TYPE_BACKUP_INDEX	(4)
+#define FILE_TYPE_BACKUP_DATA	(5)
+#define FILE_TYPE_CPM_WORKFILE	(6)
+#define FILE_TYPE_CPM_UNIT		(7)
+#define FILE_TYPE_ASP_SEQ		(18)
+#define FILE_TYPE_ASP_RANDOM	(19)
+#define FILE_TYPE_ASP_INDEX		(20)
+
 
 const char kPathSeparator =
 #ifdef _WIN32
@@ -41,6 +49,10 @@ const char* file_type_str[] = {
 	"Object Code  ",
 	"BASIC Program",
 	"BASIC Data   ",
+	"Backup Index ",
+	"Backup Data  ",
+	"CPM Workfile ",
+	"CPM Unit     "
 };
 
 /* North Star DOS Directory Entry */
@@ -215,7 +227,6 @@ int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path)
 	int dd_flag;
 
 	snprintf(fname, sizeof(fname), "%s", dir_entry->sname);
-	fname[SNAME_LEN] = '\0';
 
 	if (!strncmp(fname, "        ", SNAME_LEN)) {
 		return (-ENOENT);
@@ -226,59 +237,83 @@ int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path)
 		if (fname[j] == ' ') fname[j] = '\0';
 	}
 
+	/* Replace '/' with '-' in output filename. */
+	char* current_pos = strchr(fname, '/');
+	while (current_pos) {
+		*current_pos = '-';
+		current_pos = strchr(current_pos, '/');
+	}
+
 	/* Bit 7 of the file type indicates double-density */
 	dd_flag = (dir_entry->file_type & DOUBLE_DENSITY_FLAG);
 	file_type = dir_entry->file_type &= ~(DOUBLE_DENSITY_FLAG);
 
-	if ((dir_entry->block_count > 0) && (dir_entry->disk_address > 0)) {
-		FILE* ostream;
-		int file_offset;
-		uint8_t* file_buf;
-		int file_len;
-		char output_filename[256];
-		
-		file_len = dir_entry->block_count * NS_BLOCK_SIZE;
+	FILE* ostream;
+	int file_offset;
+	uint8_t* file_buf;
+	int file_len;
+	char output_filename[256];
 
-		switch (file_type) {
-		case FILE_TYPE_DEFAULT:
-			snprintf(output_filename, sizeof(output_filename), "%s%c%s.DEFAULT", path, kPathSeparator, fname);
-			break;
-		case FILE_TYPE_OBJECT:
-			snprintf(output_filename, sizeof(output_filename), "%s%c%s.OBJECT_L%04X", path, kPathSeparator, fname,
-				dir_entry->type_dependent_info[0] | (dir_entry->type_dependent_info[1] << 8));
-			break;
-		case FILE_TYPE_BASIC_SRC:
-			file_len = dir_entry->type_dependent_info[0] * NS_BLOCK_SIZE;
-			snprintf(output_filename, sizeof(output_filename), "%s%c%s.BASIC", path, kPathSeparator, fname);
-			break;
-		case FILE_TYPE_BASIC_DATA:
-			snprintf(output_filename, sizeof(output_filename), "%s%c%s.BASIC_DATA", path, kPathSeparator, fname);
-			break;
-		default:
-			snprintf(output_filename, sizeof(output_filename), "%s%c%s.TYPE_%d", path, kPathSeparator, fname,
-				file_type);
-			break;
-		}
+	file_len = dir_entry->block_count * NS_BLOCK_SIZE;
 
-		output_filename[sizeof(output_filename) - 1] = '\0';
-		if (!(ostream = fopen(output_filename, "wb"))) {
-			printf("Error Openening %s\n", output_filename);
-			return (-ENOENT);
-		} else if ((file_buf = (uint8_t*)calloc(1, file_len))) {
-			file_offset = dir_entry->disk_address * NS_BLOCK_SIZE * (dd_flag ? 2 : 1);
-			printf("%8s -> %s (%d bytes)\n", fname, output_filename, file_len);
-
-			fseek(instream, file_offset, SEEK_SET);
-			fread(file_buf, file_len, 1, instream);
-			fwrite(file_buf, file_len, 1, ostream);
-			free(file_buf);
-			fclose(ostream);
-			return (0);
-		} else {
-			printf("Memory allocation of %d bytes failed\n", file_len);
-			return (-ENOMEM);
-		}
+	switch (file_type) {
+	case FILE_TYPE_DEFAULT:
+		snprintf(output_filename, sizeof(output_filename), "%s%c%s.DEFAULT", path, kPathSeparator, fname);
+		break;
+	case FILE_TYPE_OBJECT:
+		snprintf(output_filename, sizeof(output_filename), "%s%c%s.OBJECT_L%04X", path, kPathSeparator, fname,
+			dir_entry->type_dependent_info[0] | (dir_entry->type_dependent_info[1] << 8));
+		break;
+	case FILE_TYPE_BASIC_SRC:
+		file_len = dir_entry->type_dependent_info[0] * NS_BLOCK_SIZE;
+		snprintf(output_filename, sizeof(output_filename), "%s%c%s.BASIC", path, kPathSeparator, fname);
+		break;
+	case FILE_TYPE_BASIC_DATA:
+		snprintf(output_filename, sizeof(output_filename), "%s%c%s.BASIC_DATA", path, kPathSeparator, fname);
+		break;
+	case FILE_TYPE_BACKUP_INDEX:
+		snprintf(output_filename, sizeof(output_filename), "%s%c%s.BACKUP_INDEX", path, kPathSeparator, fname);
+		break;
+	case FILE_TYPE_BACKUP_DATA:
+		snprintf(output_filename, sizeof(output_filename), "%s%c%s.BACKUP_INDEX", path, kPathSeparator, fname);
+		break;
+	case FILE_TYPE_CPM_WORKFILE:
+		snprintf(output_filename, sizeof(output_filename), "%s%c%s.CPM_WORKFILE", path, kPathSeparator, fname);
+		break;
+	case FILE_TYPE_CPM_UNIT:
+		snprintf(output_filename, sizeof(output_filename), "%s%c%s.CPM_UNIT", path, kPathSeparator, fname);
+		break;
+	case FILE_TYPE_ASP_SEQ:
+		snprintf(output_filename, sizeof(output_filename), "%s%c%s.ASP_SEQ", path, kPathSeparator, fname);
+		break;
+	case FILE_TYPE_ASP_RANDOM:
+		snprintf(output_filename, sizeof(output_filename), "%s%c%s.ASP_RANDOM", path, kPathSeparator, fname);
+		break;
+	case FILE_TYPE_ASP_INDEX:
+		snprintf(output_filename, sizeof(output_filename), "%s%c%s.ASP_INDEX", path, kPathSeparator, fname);
+		break;
+	default:
+		snprintf(output_filename, sizeof(output_filename), "%s%c%s.TYPE_%d", path, kPathSeparator, fname,
+			file_type);
+		break;
 	}
 
-	return (-ENOENT);
+	output_filename[sizeof(output_filename) - 1] = '\0';
+	if (!(ostream = fopen(output_filename, "wb"))) {
+		printf("Error Openening %s\n", output_filename);
+		return (-ENOENT);
+	} else if ((file_buf = (uint8_t*)calloc(1, file_len))) {
+		file_offset = dir_entry->disk_address * NS_BLOCK_SIZE * (dd_flag ? 2 : 1);
+		printf("%8s -> %s (%d bytes)\n", fname, output_filename, file_len);
+
+		fseek(instream, file_offset, SEEK_SET);
+		fread(file_buf, file_len, 1, instream);
+		fwrite(file_buf, file_len, 1, ostream);
+		free(file_buf);
+		fclose(ostream);
+		return (0);
+	}
+
+	printf("Memory allocation of %d bytes failed\n", file_len);
+	return (-ENOMEM);
 }
