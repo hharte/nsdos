@@ -71,10 +71,10 @@ int main(int argc, char *argv[])
 	int extracted_file_count = 0;
 	int status = 0;
 
-	printf("North Star DOS File Utility (c) 2021 - Howard M. Harte\n");
-	printf("https://github.com/hharte/nsdos\n\n");
-
 	if (argc < 2) {
+		printf("North Star DOS File Utility (c) 2021 - Howard M. Harte\n");
+		printf("https://github.com/hharte/nsdos\n\n");
+
 		printf("usage is: %s <filename.nsi> [command] [<filename>|<path>]\n", argv[0]);
 		printf("\t<filename.nsi> North Star DOS Disk Image in .nsi format.\n");
 		printf("\t[command]      LI - List files\n");
@@ -101,6 +101,11 @@ int main(int argc, char *argv[])
 	if (dir_entry_cnt == 0) {
 		fprintf(stderr, "File not found\n");
 		status = -ENOENT;
+		goto exit_main;
+	}
+	else if ((dir_entry_cnt == 1) && (!memcmp(dir_entry_list[0].sname, "FORMAT  ", SNAME_LEN))) {
+		fprintf(stderr, "Disk is CP/M %s-density.\n", dir_entry_list[0].file_type & DOUBLE_DENSITY_FLAG ? "double" : "single");
+		status = -EPERM;
 		goto exit_main;
 	}
 
