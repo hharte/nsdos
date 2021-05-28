@@ -29,6 +29,13 @@
 #define FILE_TYPE_BASIC_SRC		(2)
 #define FILE_TYPE_BASIC_DATA	(3)
 
+const char kPathSeparator =
+#ifdef _WIN32
+	'\\';
+#else
+	'/';
+#endif
+
 const char* file_type_str[] = {
 	"Default      ",
 	"Object Code  ",
@@ -64,7 +71,8 @@ int main(int argc, char *argv[])
 	int extracted_file_count = 0;
 	int status = 0;
 
-	printf("North Star DOS File Utility (c) 2021 - Howard M. Harte\n\n");
+	printf("North Star DOS File Utility (c) 2021 - Howard M. Harte\n");
+	printf("https://github.com/hharte/nsdos\n\n");
 
 	if (argc < 2) {
 		printf("usage is: %s <filename.nsi> [command] [<filename>|<path>]\n", argv[0]);
@@ -209,7 +217,7 @@ int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path)
 	}
 
 	/* Truncate the filename if a space is encountered. */
-	for (int j = 0; j < strnlen(fname, sizeof(fname)); j++) {
+	for (unsigned int j = 0; j < strnlen(fname, sizeof(fname)); j++) {
 		if (fname[j] == ' ') fname[j] = '\0';
 	}
 
@@ -222,27 +230,27 @@ int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path)
 		int file_offset;
 		uint8_t* file_buf;
 		int file_len;
-		char output_filename[32];
+		char output_filename[256];
 		
 		file_len = dir_entry->block_count * NS_BLOCK_SIZE;
 
 		switch (file_type) {
 		case FILE_TYPE_DEFAULT:
-			snprintf(output_filename, sizeof(output_filename), "%s/%s.DEFAULT", path, fname);
+			snprintf(output_filename, sizeof(output_filename), "%s%c%s.DEFAULT", path, kPathSeparator, fname);
 			break;
 		case FILE_TYPE_OBJECT:
-			snprintf(output_filename, sizeof(output_filename), "%s/%s.OBJECT_L%04X", path, fname,
+			snprintf(output_filename, sizeof(output_filename), "%s%c%s.OBJECT_L%04X", path, kPathSeparator, fname,
 				dir_entry->type_dependent_info[0] | (dir_entry->type_dependent_info[1] << 8));
 			break;
 		case FILE_TYPE_BASIC_SRC:
 			file_len = dir_entry->type_dependent_info[0] * NS_BLOCK_SIZE;
-			snprintf(output_filename, sizeof(output_filename), "%s/%s.BASIC", path, fname);
+			snprintf(output_filename, sizeof(output_filename), "%s%c%s.BASIC", path, kPathSeparator, fname);
 			break;
 		case FILE_TYPE_BASIC_DATA:
-			snprintf(output_filename, sizeof(output_filename), "%s/%s.BASIC_DATA", path, fname);
+			snprintf(output_filename, sizeof(output_filename), "%s%c%s.BASIC_DATA", path, kPathSeparator, fname);
 			break;
 		default:
-			snprintf(output_filename, sizeof(output_filename), "%s/%s.TYPE_%d", path, fname,
+			snprintf(output_filename, sizeof(output_filename), "%s%c%s.TYPE_%d", path, kPathSeparator, fname,
 				file_type);
 			break;
 		}
