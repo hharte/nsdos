@@ -116,9 +116,18 @@ int main(int argc, char *argv[])
 		goto exit_main;
 	}
 	else if ((dir_entry_cnt == 1) && (!memcmp(dir_entry_list[0].sname, "FORMAT  ", SNAME_LEN))) {
-		fprintf(stderr, "Disk is CP/M %s-density.\n", dir_entry_list[0].file_type & DOUBLE_DENSITY_FLAG ? "double" : "single");
+		fprintf(stderr, "Disk is Lifeboat CP/M %s-density.\n", dir_entry_list[0].file_type & DOUBLE_DENSITY_FLAG ? "double" : "single");
 		status = -EPERM;
 		goto exit_main;
+	}
+	else {
+		for (i = 0; i < dir_entry_cnt; i++) {
+			if (!memcmp(dir_entry_list[i].sname, "CPM DATA ", SNAME_LEN)) {
+				fprintf(stderr, "Disk is Northstar CP/M %s-density.\n", dir_entry_list[0].file_type & DOUBLE_DENSITY_FLAG ? "double" : "single");
+				status = -EPERM;
+				goto exit_main;
+			}
+		}
 	}
 
 	/* Parse the command, and perform the requested action. */
