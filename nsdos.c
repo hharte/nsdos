@@ -19,8 +19,9 @@
 #include <string.h>
 
 #define NS_BLOCK_SIZE		(256)
-#define DIR_ENTRIES_DD		(16 * 8)
-#define DIR_ENTRIES_SD		(16 * 4)
+#define DIR_ENTRIES_PER_BLK	(16)
+#define DIR_ENTRIES_DD		(DIR_ENTRIES_PER_BLK * 8)
+#define DIR_ENTRIES_SD		(DIR_ENTRIES_PER_BLK * 4)
 #define SNAME_LEN	8
 #define DOUBLE_DENSITY_FLAG	(0x80)
 
@@ -64,10 +65,20 @@ typedef struct ns_dir_entry {
 	uint8_t type_dependent_info[3];
 } ns_dir_entry_t;
 
+typedef struct nsdos_args {
+	char image_filename[256];
+	char output_path[256];
+	char operation[8];
+	int dir_block_cnt;
+	int force;
+	int quiet;
+} nsdos_args_t;
+
 /* Function prototypes */
-int ns_read_dir_entries(FILE* stream, ns_dir_entry_t* dir_entries);
+int parse_args(int argc, char* argv[], nsdos_args_t* args);
+int ns_read_dir_entries(FILE* stream, ns_dir_entry_t* dir_entries, int dir_block_cnt);
 void ns_list_dir_entry(ns_dir_entry_t* dir_entry);
-int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path);
+int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path, int quiet);
 
 #if defined(_WIN32)
 #define strncasecmp(x,y,z) _strnicmp(x,y,z)
@@ -77,25 +88,32 @@ int main(int argc, char *argv[])
 {
 	FILE* instream;
 	ns_dir_entry_t *dir_entry_list;
+	nsdos_args_t args;
+	int positional_arg_cnt;
 	int dir_entry_cnt;
 	int i;
 	int result;
 	int extracted_file_count = 0;
 	int status = 0;
 
-	if (argc < 2) {
+	positional_arg_cnt = parse_args(argc, argv, &args);
+
+	if (positional_arg_cnt == 0) {
 		printf("North Star DOS File Utility (c) 2021 - Howard M. Harte\n");
 		printf("https://github.com/hharte/nsdos\n\n");
 
-		printf("usage is: %s <filename.nsi> [command] [<filename>|<path>]\n", argv[0]);
+		printf("usage is: %s <filename.nsi> [command] [<filename>|<path>] [-q] [-b=n]\n", argv[0]);
 		printf("\t<filename.nsi> North Star DOS Disk Image in .nsi format.\n");
 		printf("\t[command]      LI - List files\n");
 		printf("\t               EX - Extract files to <path>\n");
-		printf("If no command is given, LIst is assumed.\n");
+		printf("\tFlags:\n");
+		printf("\t      -q       Quiet: Don't list file details during extraction.\n");
+		printf("\t      -d=n     Directory block count=n: limit directory size to n blocks.\n");
+		printf("\n\tIf no command is given, LIst is assumed.\n");
 		return (-1);
 	}
 
-	if (!(instream = fopen(argv[1], "rb"))) {
+	if (!(instream = fopen(args.image_filename, "rb"))) {
 		fprintf(stderr, "Error Openening %s\n", argv[1]);
 		return (-ENOENT);
 	}
@@ -108,43 +126,43 @@ int main(int argc, char *argv[])
 		goto exit_main;
 	}
 
-	dir_entry_cnt = ns_read_dir_entries(instream, dir_entry_list);
+	dir_entry_cnt = ns_read_dir_entries(instream, dir_entry_list, args.dir_block_cnt);
 
 	if (dir_entry_cnt == 0) {
 		fprintf(stderr, "File not found\n");
 		status = -ENOENT;
 		goto exit_main;
 	}
-	else if ((dir_entry_cnt == 1) && (!memcmp(dir_entry_list[0].sname, "FORMAT  ", SNAME_LEN))) {
-		fprintf(stderr, "Disk is Lifeboat CP/M %s-density.\n", dir_entry_list[0].file_type & DOUBLE_DENSITY_FLAG ? "double" : "single");
-		status = -EPERM;
-		goto exit_main;
-	}
-	else {
-		for (i = 0; i < dir_entry_cnt; i++) {
-			if (!memcmp(dir_entry_list[i].sname, "CPM DATA ", SNAME_LEN)) {
-				fprintf(stderr, "Disk is Northstar CP/M %s-density.\n", dir_entry_list[0].file_type & DOUBLE_DENSITY_FLAG ? "double" : "single");
-				status = -EPERM;
-				goto exit_main;
-			}
-		}
-	}
 
 	/* Parse the command, and perform the requested action. */
-	if ((argc == 2) || (!strncasecmp(argv[2], "LI", 2))) {
+	if ((positional_arg_cnt == 1) | (!strncasecmp(args.operation, "LI", 2))) {
 		printf("Filename  DA BLKS D TYP Type          Metadata\n");
 
 		for (i = 0; i < dir_entry_cnt; i++) {
 			ns_list_dir_entry(&dir_entry_list[i]);
 		}
+		if (dir_entry_cnt > 0) {
+			if ((dir_entry_cnt == 1) && (!memcmp(dir_entry_list[0].sname, "FORMAT  ", SNAME_LEN))) {
+				fprintf(stderr, "\nDisk is Lifeboat CP/M %s-density.\n", dir_entry_list[0].file_type & DOUBLE_DENSITY_FLAG ? "double" : "single");
+				status = -EPERM;
+			}
+			else {
+				for (i = 0; i < dir_entry_cnt; i++) {
+					if (!memcmp(dir_entry_list[i].sname, "CPM DATA ", SNAME_LEN)) {
+						fprintf(stderr, "\nDisk is Northstar CP/M %s-density.\n", dir_entry_list[0].file_type & DOUBLE_DENSITY_FLAG ? "double" : "single");
+						status = -EPERM;
+					}
+				}
+			}
+		}
 	} else {
-		if (argc < 4) {
-			printf("filename required.\n");
-			status = -1;
+		if (positional_arg_cnt < 2) {
+			fprintf(stderr, "filename required.\n");
+			status = -EBADF;
 			goto exit_main;
-		} else if (!strncasecmp(argv[2], "EX", 2)) {
+		} else if (!strncasecmp(args.operation, "EX", 2)) {
 			for (i = 0; i < dir_entry_cnt; i++) {
-				result = ns_extract_file(&dir_entry_list[i], instream, argv[3]);
+				result = ns_extract_file(&dir_entry_list[i], instream, args.output_path, args.quiet);
 				if (result == 0) {
 					extracted_file_count++;
 				}
@@ -161,12 +179,58 @@ exit_main:
 	return status;
 }
 
-int ns_read_dir_entries(FILE* stream, ns_dir_entry_t* dir_entries)
+int parse_args(int argc, char* argv[], nsdos_args_t *args)
+{
+	int positional_arg_cnt = 0;
+
+	memset(args, 0, sizeof(nsdos_args_t));
+
+	for (int i = 1; i < argc; i++) {
+		if (argv[i][0] != '-') {
+			switch (positional_arg_cnt) {
+			case 0:
+				snprintf(args->image_filename, sizeof(args->image_filename), "%s", argv[i]);
+				break;
+			case 1:
+				snprintf(args->operation, sizeof(args->operation), "%s", argv[i]);
+				break;
+			case 2:
+				snprintf(args->output_path, sizeof(args->output_path), "%s", argv[i]);
+				break;
+			}
+			positional_arg_cnt++;
+		}
+		else {
+			char flag = argv[i][1];
+			switch (flag) {
+			case'd':
+				args->dir_block_cnt = atoi(&argv[i][3]);
+				break;
+			case 'f':
+				args->force = 1;
+				break;
+			case 'q':
+				args->quiet = 1;
+				break;
+			default:
+				printf("Unknown option '-%c'\n", flag);
+				break;
+			}
+		}
+	}
+	return positional_arg_cnt;
+}
+
+int ns_read_dir_entries(FILE* stream, ns_dir_entry_t* dir_entries, int dir_block_cnt)
 {
 	int dir_entry_max = DIR_ENTRIES_SD;
 	int dd_flag;
 	int dir_entry_index = 0;
 	ns_dir_entry_t* dir_entry;
+
+	if (dir_block_cnt > 0) {
+		dir_entry_max = dir_block_cnt * DIR_ENTRIES_PER_BLK;
+	}
 
 	for (int i = 0; i < dir_entry_max; i++) {
 		size_t readlen;
@@ -181,7 +245,9 @@ int ns_read_dir_entries(FILE* stream, ns_dir_entry_t* dir_entries)
 
 				if (dd_flag) {
 					dir_entry->block_count *= 2;
-					dir_entry_max = DIR_ENTRIES_DD;
+					if (dir_block_cnt == 0) {
+						dir_entry_max = DIR_ENTRIES_DD;
+					}
 				}
 
 				dir_entry_index++;
@@ -229,28 +295,38 @@ void ns_list_dir_entry(ns_dir_entry_t* dir_entry)
 	}
 }
 
-int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path)
+int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path, int quiet)
 {
 	uint8_t file_type;
+	char dos_fname[SNAME_LEN + 1];
 	char fname[SNAME_LEN + 1];
 	int dd_flag;
 
-	snprintf(fname, sizeof(fname), "%s", dir_entry->sname);
+	snprintf(dos_fname, sizeof(dos_fname), "%s", dir_entry->sname);
 
-	if (!strncmp(fname, "        ", SNAME_LEN)) {
+	if (!strncmp(dos_fname, "        ", SNAME_LEN)) {
 		return (-ENOENT);
 	}
 
 	/* Truncate the filename if a space is encountered. */
-	for (unsigned int j = 0; j < strnlen(fname, sizeof(fname)); j++) {
-		if (fname[j] == ' ') fname[j] = '\0';
+	for (unsigned int j = 0; j < strnlen(dos_fname, sizeof(dos_fname)); j++) {
+		if (dos_fname[j] == ' ') dos_fname[j] = '\0';
 	}
+
+	snprintf(fname, sizeof(fname), "%s", dos_fname);
 
 	/* Replace '/' with '-' in output filename. */
 	char* current_pos = strchr(fname, '/');
 	while (current_pos) {
 		*current_pos = '-';
 		current_pos = strchr(current_pos, '/');
+	}
+
+	/* Replace '*' with 's' in output filename. */
+	current_pos = strchr(fname, '*');
+	while (current_pos) {
+		*current_pos = 's';
+		current_pos = strchr(current_pos, '*');
 	}
 
 	/* Bit 7 of the file type indicates double-density */
@@ -313,7 +389,7 @@ int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path)
 		return (-ENOENT);
 	} else if ((file_buf = (uint8_t*)calloc(1, file_len))) {
 		file_offset = dir_entry->disk_address * NS_BLOCK_SIZE * (dd_flag ? 2 : 1);
-		printf("%8s -> %s (%d bytes)\n", fname, output_filename, file_len);
+		if (!quiet) printf("%8s -> %s (%d bytes)\n", dos_fname, output_filename, file_len);
 
 		fseek(instream, file_offset, SEEK_SET);
 		fread(file_buf, file_len, 1, instream);
