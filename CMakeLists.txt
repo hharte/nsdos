@@ -10,7 +10,9 @@ add_executable (nsdos "nsdos.c" )
 target_link_libraries(nsdos -static)
 
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
-target_compile_options(nsdos PRIVATE /MT)
-target_link_options(nsdos PRIVATE /INCREMENTAL:NO /NODEFAULTLIB:MSVCRT)
+if (MSVC)
+    target_compile_options(nsdos PRIVATE /MT)
+    target_link_options(nsdos PRIVATE /INCREMENTAL:NO /NODEFAULTLIB:MSVCRT)
+endif (MSVC)
 
 # TODO: Add tests and install targets if needed.
