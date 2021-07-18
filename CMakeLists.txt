@@ -7,7 +7,6 @@ project ("nsdos")
 
 # Add source to this project's executable.
 add_executable (nsdos "nsdos.c" )
-target_link_libraries(nsdos -static)
 
 set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
 if (MSVC)
