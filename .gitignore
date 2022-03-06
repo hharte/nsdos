@@ -1,6 +1,8 @@
 CMakeCache.txt
 CMakeFiles/
+CMakeSettings.json
 Makefile
 cmake_install.cmake
 nsdos
 .vs/
+out/
