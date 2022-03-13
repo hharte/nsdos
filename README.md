@@ -1,6 +1,7 @@
 # nsdos - North Star DOS Disk Utility
 
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/3953578fd1654c26922d7115565afc6c)](https://www.codacy.com/gh/hharte/nsdos/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=hharte/nsdos&amp;utm_campaign=Badge_Grade)
+[![Coverity](https://scan.coverity.com/projects/24659/badge.svg)](https://scan.coverity.com/projects/hharte-nsdos)
 
 North Star Computers had their own DOS for use with their Horizon and Advantage computer systems, as well as for use with their disk controller.  These disks have a very simple file system, where every file has to be contiguous.
 
