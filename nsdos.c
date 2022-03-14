@@ -69,7 +69,7 @@ typedef struct nsdos_args {
 	char image_filename[256];
 	char output_path[256];
 	char operation[8];
-	int dir_block_cnt;
+	unsigned int dir_block_cnt;
 	int force;
 	int quiet;
 } nsdos_args_t;
@@ -204,7 +204,13 @@ int parse_args(int argc, char* argv[], nsdos_args_t *args)
 			char flag = argv[i][1];
 			switch (flag) {
 			case'd':
-				args->dir_block_cnt = atoi(&argv[i][3]);
+				args->dir_block_cnt = (unsigned int)atoi(&argv[i][3]);
+				if (args->dir_block_cnt > 8) {
+					printf("Warning: Invalid directory block count %d ignored.\n",
+						args->dir_block_cnt);
+
+					args->dir_block_cnt = 8;
+				}
 				break;
 			case 'f':
 				args->force = 1;
@@ -391,14 +397,23 @@ int ns_extract_file(ns_dir_entry_t* dir_entry, FILE* instream, char *path, int q
 		file_offset = dir_entry->disk_address * NS_BLOCK_SIZE * (dd_flag ? 2 : 1);
 		if (!quiet) printf("%8s -> %s (%d bytes)\n", dos_fname, output_filename, file_len);
 
-		fseek(instream, file_offset, SEEK_SET);
-		fread(file_buf, file_len, 1, instream);
-		fwrite(file_buf, file_len, 1, ostream);
+		if (0 == fseek(instream, file_offset, SEEK_SET)) {
+			if (1 == fread(file_buf, file_len, 1, instream)) {
+				if (1 != fwrite(file_buf, file_len, 1, ostream)) {
+					printf("Error writing output file.\n");
+				} else;
+			} else {
+				printf("Error reading image file.\n");
+			}
+		} else {
+			printf("Error: Failed to seek image file.\n");
+		}
 		free(file_buf);
 		fclose(ostream);
 		return (0);
 	}
 
 	printf("Memory allocation of %d bytes failed\n", file_len);
+	fclose(ostream);
 	return (-ENOMEM);
 }
