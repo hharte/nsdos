@@ -14,4 +14,7 @@ if (MSVC)
     target_link_options(nsdos PRIVATE /INCREMENTAL:NO /NODEFAULTLIB:MSVCRT)
 endif (MSVC)
 
-# TODO: Add tests and install targets if needed.
+# Install
+if (NOT MSVC)
+install(TARGETS nsdos DESTINATION /usr/local/bin)
+endif()
